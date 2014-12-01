@@ -1,4 +1,5 @@
 # coding: utf-8
+import os
 import json
 import logging
 import tornado.ioloop
@@ -6,6 +7,7 @@ import tornado.web
 
 import config
 import ip_db
+import utils
 
 g_ip_db = None
 
@@ -13,7 +15,49 @@ class MainHandler(tornado.web.RequestHandler):
     def get(self):
         self.write("Hello, I am funny.<p>\n")
         
+class LiveWinHandler(tornado.web.RequestHandler):
+    def get(self):
+        self.render("./live/win.html")
+        
+        
+class LiveIosHandler(tornado.web.RequestHandler):
+    def get(self):
+        self.render("./live/ios.html")
 
+
+class LiveJsHandler(tornado.web.RequestHandler):
+    def get(self):
+        self.render("./live/jquery-1.10.1.min.js")
+        
+                
+class LiveChannelsHandler(tornado.web.RequestHandler):
+    def get(self):
+        # http://223.99.189.101:8010/chnList/
+        channels_url = "http://223.99.189.101:8010/chnList/"
+        (ret, channels_content) = utils.download_memory(channels_url, 0)
+        if(ret == False):
+            self.write("")
+        channels_content.seek(0)
+        channels_data = channels_content.read()
+        self.write(channels_data)
+        
+
+class IpCountHandler(tornado.web.RequestHandler):
+    def get(self):
+        self.handle()
+        
+    def post(self):
+        self.handle()
+        
+    def handle(self):
+        ip_count = len(g_ip_db.ip_list)
+        logging.info("IpCountHandler: ip_count=[%d]" % (ip_count))
+        response_data = {"count":ip_count, "result":1}
+        json_data = json.dumps(response_data)        
+        self.write(json_data)
+        return True
+    
+    
 class IpQueryHandler(tornado.web.RequestHandler):
     def get(self):
         self.handle()
@@ -39,11 +83,23 @@ class IpQueryHandler(tornado.web.RequestHandler):
         self.write(json_data)
         return True
                 
+settings = {
+    "static_path": os.path.join(os.path.dirname(__file__), "static"),
+    #"cookie_secret": "61oETzKXQAGaYdkL5gEmGeJJFuYh7EQnp2XdTP1o/Vo=",
+    #"login_url": "/login",
+    #"xsrf_cookies": True,
+}
 
 application = tornado.web.Application([
-    (r"/",                          MainHandler),    
+    (r"/",                          MainHandler),
+    (r"/static/.*",                    tornado.web.StaticFileHandler, dict(path=settings['static_path'])),
+    #(r"/.*\.html",                  tornado.web.StaticFileHandler, dict(path=settings['static_path'])),
+    (r"/live/win",                  LiveWinHandler), 
+    (r"/live/ios",                  LiveIosHandler),    
+    (r"/live/channels",             LiveChannelsHandler),
     (r"/ip_query",                  IpQueryHandler),
-])
+    (r"/ip_count",                  IpCountHandler),
+], **settings)
 
 if __name__ == "__main__":    
     logging.basicConfig(filename=config.LOG_FILENAME, level=logging.INFO)
