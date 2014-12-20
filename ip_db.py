@@ -27,11 +27,79 @@ def check_ip(ipaddr):
         else:
             return False
     return True
+
+class IpMask:
+    def __init__(self, ip_start, mask_num):
+        self.ip_start = ip_start
+        self.mask_num = mask_num
+        num_remainder = 32-self.mask_num        
+        ip_remainder = 0
+        for index in range(num_remainder):
+            ip_remainder = ip_remainder | 1 << index
+        self.ip_stop = self.ip_start + ip_remainder
+        self.str_ip_start = socket.inet_ntoa(struct.pack('I',socket.htonl(self.ip_start))) 
+        self.str_ip_stop  = socket.inet_ntoa(struct.pack('I',socket.htonl(self.ip_stop))) 
+    
+    def reset(self, ip_start):
+        self.ip_start = ip_start        
+        num_remainder = 32-self.mask_num        
+        ip_remainder = 0
+        for index in range(num_remainder):
+            ip_remainder = ip_remainder | 1 << index
+        self.ip_stop = self.ip_start + ip_remainder
+        self.str_ip_start = socket.inet_ntoa(struct.pack('I',socket.htonl(self.ip_start))) 
+        self.str_ip_stop  = socket.inet_ntoa(struct.pack('I',socket.htonl(self.ip_stop)))
+        
+     
+def ip_trans1(ip1_ip2):
+    the_parts = ip1_ip2.split('-')
+    ip1 = the_parts[0]
+    ip2 = the_parts[1]
+    ip_start = socket.ntohl(struct.unpack("I",socket.inet_aton(str(ip1)))[0])
+    ip_stop  = socket.ntohl(struct.unpack("I",socket.inet_aton(str(ip2)))[0])
+    ip_num   = ip_stop - ip_start + 1    
+    ip_num_temp = ip_num
+    bits_index = 0    
+    ip_section_list = []
+    while(ip_num_temp>0):
+        if(ip_num_temp&1 == 1):
+            one_ip_mask = IpMask(ip_start, (32-bits_index)) 
+            ip_section_list.insert(0, one_ip_mask)           
+        ip_num_temp = ip_num_temp >> 1
+        bits_index += 1
+    result_list = []
+    ip_section_index = 0
+    while(ip_section_index<len(ip_section_list)):
+        one_ip_mask = ip_section_list[ip_section_index]
+        if(ip_section_index!=0):
+            one_ip_mask.reset(ip_section_list[ip_section_index-1].ip_stop + 1)
+        one_result = "%s/%d[%s-%s]" % (one_ip_mask.str_ip_start, one_ip_mask.mask_num, one_ip_mask.str_ip_start, one_ip_mask.str_ip_stop)
+        result_list.append(one_result)
+        ip_section_index += 1
+    return (len(result_list), result_list)
             
 
 class IpSection:
     def __init__(self, ip_section, area):
-        the_parts = ip_section.split('/')
+        self.ip_section     = ip_section
+        self.area           = area
+        self.ip_start       = 0
+        self.ip_stop        = 0
+        self.str_ip_start   = ""
+        self.str_ip_stop    = ""
+        if(ip_section.find('/') >= 0):
+            self.read_ip_mask()
+        elif(ip_section.find('-') >= 0):
+            self.read_ip_start_stop()
+        else:
+            logging.info("illegal section=[%s], area=[%s]" % (self.ip_section, self.area))
+            print ("illegal section=[%s], area=[%s]" % (self.ip_section, self.area))
+            sys.exit(-1)
+                     
+        
+        
+    def read_ip_mask(self):
+        the_parts = self.ip_section.split('/')
         the_ip = the_parts[0]
         the_mask = the_parts[1]
         num_mask = string.atoi(the_mask)
@@ -39,12 +107,52 @@ class IpSection:
         ip_remainder = 0
         for index in range(num_remainder):
             ip_remainder = ip_remainder | 1 << index
-        self.ip_section = ip_section
-        self.area = area
-        self.ip_start = socket.ntohl(struct.unpack("I",socket.inet_aton(str(the_ip)))[0])
+        num_network = 0xFFFFFFFF ^ ip_remainder        
+        the_ip_num = socket.ntohl(struct.unpack("I",socket.inet_aton(str(the_ip)))[0])
+        self.ip_start = the_ip_num & num_network
         self.ip_stop = self.ip_start + ip_remainder
-        logging.info("ip_start=0x%08X, ip_stop=0x%08X, section=[%s], area=[%s]" % (self.ip_start, self.ip_stop, self.ip_section, self.area))
+        self.str_ip_start = socket.inet_ntoa(struct.pack('I',socket.htonl(self.ip_start))) 
+        self.str_ip_stop  = socket.inet_ntoa(struct.pack('I',socket.htonl(self.ip_stop))) 
+        logging.info("ip_str=[%s-%s], section=[%s], area=[%s]" % \
+                     (self.str_ip_start, self.str_ip_stop, self.ip_section, self.area))
+        print ("ip_str=[%s-%s], section=[%s], area=[%s]" % \
+                     (self.str_ip_start, self.str_ip_stop, self.ip_section, self.area))
+        
     
+    def read_ip_start_stop(self):
+        the_parts = self.ip_section.split('-')
+        ip1 = the_parts[0]
+        ip2 = the_parts[1]
+        ip_start = socket.ntohl(struct.unpack("I",socket.inet_aton(str(ip1)))[0])
+        ip_stop  = socket.ntohl(struct.unpack("I",socket.inet_aton(str(ip2)))[0])
+        self.ip_start = ip_start
+        self.ip_stop  = ip_stop
+        self.str_ip_start = ip1
+        self.str_ip_stop  = ip2
+        ip_num   = ip_stop - ip_start + 1    
+        ip_num_temp = ip_num
+        bits_index = 0    
+        ip_section_list = []
+        while(ip_num_temp>0):
+            if(ip_num_temp&1 == 1):
+                one_ip_mask = IpMask(ip_start, (32-bits_index)) 
+                ip_section_list.insert(0, one_ip_mask)           
+            ip_num_temp = ip_num_temp >> 1
+            bits_index += 1
+        result_list = []
+        ip_section_index = 0
+        while(ip_section_index<len(ip_section_list)):
+            one_ip_mask = ip_section_list[ip_section_index]
+            if(ip_section_index!=0):
+                one_ip_mask.reset(ip_section_list[ip_section_index-1].ip_stop + 1)
+            one_result = "%s/%d(%s-%s)" % (one_ip_mask.str_ip_start, one_ip_mask.mask_num, one_ip_mask.str_ip_start, one_ip_mask.str_ip_stop)
+            result_list.append(one_result)
+            ip_section_index += 1
+        logging.info("ip_str=[%s-%s], section=[%s], area=[%s]" % \
+                     (self.str_ip_start, self.str_ip_stop, str(result_list), self.area))
+        print ("ip_str=[%s-%s], section=[%s], area=[%s]" % \
+                     (self.str_ip_start, self.str_ip_stop, str(result_list), self.area))
+
     
 class IpDb:
     def __init__(self):

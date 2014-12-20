@@ -1,6 +1,6 @@
 # coding: utf-8
 
-LISTEN_PORT  = 3344
+LISTEN_PORT  = 5656
 LOG_FILENAME = "/data/funny/logs/funny.log"
 
 MAX_RETRY_COUNT         = 5
