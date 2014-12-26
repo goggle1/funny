@@ -131,7 +131,34 @@ class IpTrans1Handler(tornado.web.RequestHandler):
         for one_section in ip_sections:
             response_data["sections"].append(one_section)
         json_data = json.dumps(response_data)     
-        logging.info("IpTrans1Handler received: param_ip1_ip2=[%s], result=[%s], num=%d" % (param_ip1_ip2, result, len(ip_sections)))
+        logging.info("IpTrans1Handler received: param_ip1_ip2=[%s], result=[%d], num=%d" % (param_ip1_ip2, result, len(ip_sections)))
+        logging.info(json_data)  
+        self.write(json_data)
+        return True
+
+    
+class IpTrans2Handler(tornado.web.RequestHandler):
+    def get(self):
+        self.handle()
+        
+    def post(self):
+        self.handle()
+        
+    def prompt(self):
+        self.write('<html><body><form action="/ip_trans2" method="post">'
+                   'ip1/mask: <input type="text" name="ip1_mask">'
+                   '<input type="submit" value="transform">'
+                   '</form></body></html>')
+        
+    def handle(self):        
+        param_ip1_mask = self.get_argument("ip1_mask", "null")   
+        if(cmp(param_ip1_mask, "null") == 0):
+            return self.prompt()     
+        (result, ip_start, ip_stop) = ip_db.ip_trans2(param_ip1_mask)  
+        str_ip1_ip2 = "%s-%s" % (ip_start, ip_stop)      
+        response_data = {"ip1/mask":param_ip1_mask, "result":result, "ip1-ip2":str_ip1_ip2}        
+        json_data = json.dumps(response_data)     
+        logging.info("IpTrans2Handler received: param_ip1_mask=[%s], result=[%s], ip1-ip2=[%s]" % (param_ip1_mask, result, str_ip1_ip2))
         logging.info(json_data)  
         self.write(json_data)
         return True
@@ -155,7 +182,7 @@ application = tornado.web.Application([
     (r"/ip_query",                  IpQueryHandler),
     (r"/ip_query2",                 IpQuery2Handler),
     (r"/ip_trans1",                 IpTrans1Handler),
-    #(r"/ip_trans2",                 IpTrans2Handler),
+    (r"/ip_trans2",                 IpTrans2Handler),
     #(r"/ip_section_combine",        IpSectionCombineHandler),
 ], **settings)
 

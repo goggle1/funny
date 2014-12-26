@@ -28,6 +28,18 @@ def check_ip(ipaddr):
             return False
     return True
 
+
+def check_mask(the_mask):     
+    if the_mask.isdigit() == False:  
+        return False
+    num_mask = string.atoi(the_mask)
+    if(num_mask < 0):
+        return False
+    if(num_mask > 32):
+        return False
+    return True
+
+
 class IpMask:
     def __init__(self, ip_start, mask_num):
         self.ip_start = ip_start
@@ -51,10 +63,16 @@ class IpMask:
         self.str_ip_stop  = socket.inet_ntoa(struct.pack('I',socket.htonl(self.ip_stop)))
         
      
-def ip_trans1(ip1_ip2):
+def ip_trans1(ip1_ip2):    
     the_parts = ip1_ip2.split('-')
+    if(len(the_parts) < 2):
+        return (0, [])
     ip1 = the_parts[0]
     ip2 = the_parts[1]
+    if(check_ip(ip1) == False):
+        return (0, [])
+    if(check_ip(ip2) == False):
+        return (0, [])
     ip_start = socket.ntohl(struct.unpack("I",socket.inet_aton(str(ip1)))[0])
     ip_stop  = socket.ntohl(struct.unpack("I",socket.inet_aton(str(ip2)))[0])
     ip_num   = ip_stop - ip_start + 1    
@@ -77,7 +95,31 @@ def ip_trans1(ip1_ip2):
         result_list.append(one_result)
         ip_section_index += 1
     return (len(result_list), result_list)
-            
+
+ 
+def ip_trans2(ip1_mask):    
+    the_parts = ip1_mask.split('/')
+    if(len(the_parts) < 2):
+        return (0, "", "")
+    the_ip = the_parts[0]
+    the_mask = the_parts[1]
+    if(check_ip(the_ip) == False):
+        return (0, "", "")
+    if(check_mask(the_mask) == False):
+        return (0, "", "")
+    num_mask = string.atoi(the_mask)
+    num_remainder = 32-num_mask        
+    ip_remainder = 0
+    for index in range(num_remainder):
+        ip_remainder = ip_remainder | 1 << index
+    num_network = 0xFFFFFFFF ^ ip_remainder        
+    the_ip_num = socket.ntohl(struct.unpack("I",socket.inet_aton(str(the_ip)))[0])
+    ip_start = the_ip_num & num_network
+    ip_stop = ip_start + ip_remainder
+    str_ip_start = socket.inet_ntoa(struct.pack('I',socket.htonl(ip_start))) 
+    str_ip_stop  = socket.inet_ntoa(struct.pack('I',socket.htonl(ip_stop))) 
+    return (1, str_ip_start, str_ip_stop)
+           
 
 class IpSection:
     def __init__(self, ip_section, area):
