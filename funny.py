@@ -126,7 +126,7 @@ class IpTrans1Handler(tornado.web.RequestHandler):
         param_ip1_ip2 = self.get_argument("ip1_ip2", "null")   
         if(cmp(param_ip1_ip2, "null") == 0):
             return self.prompt()     
-        (result, ip_sections) = ip_db.ip_trans1(param_ip1_ip2)        
+        (result, ip_sections) = ip_db.ip_trans_1(param_ip1_ip2)        
         response_data = {"ip1_ip2":param_ip1_ip2, "result":result, "num":len(ip_sections), "sections":[]}
         for one_section in ip_sections:
             response_data["sections"].append(one_section)

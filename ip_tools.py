@@ -87,10 +87,10 @@ def ip_section_overlap(file_name):
                 
     
 if __name__ == "__main__":
-    file_name = "ip_lib.1"
-    ip_section_check(file_name)
+    #file_name = "ip_lib.1"
+    #ip_section_check(file_name)
     #file_name = "ip_lib.1"    
     #ip_section_sort(file_name)
-    #file_name = "ip_lib.1.sort"
-    #ip_section_overlap(file_name)
+    file_name = "ip_lib.sort"
+    ip_section_overlap(file_name)
     

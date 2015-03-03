@@ -41,13 +41,15 @@ def check_mask(the_mask):
 
 
 class IpMask:
-    def __init__(self, ip_start, mask_num):
-        self.ip_start = ip_start
+    def __init__(self, one_ip, mask_num):
+        self.one_ip = one_ip
         self.mask_num = mask_num
-        num_remainder = 32-self.mask_num        
+        num_remainder = 32-mask_num        
         ip_remainder = 0
         for index in range(num_remainder):
             ip_remainder = ip_remainder | 1 << index
+        num_network = 0xFFFFFFFF ^ ip_remainder  
+        self.ip_start = self.one_ip & num_network                
         self.ip_stop = self.ip_start + ip_remainder
         self.str_ip_start = socket.inet_ntoa(struct.pack('I',socket.htonl(self.ip_start))) 
         self.str_ip_stop  = socket.inet_ntoa(struct.pack('I',socket.htonl(self.ip_stop))) 
@@ -61,9 +63,17 @@ class IpMask:
         self.ip_stop = self.ip_start + ip_remainder
         self.str_ip_start = socket.inet_ntoa(struct.pack('I',socket.htonl(self.ip_start))) 
         self.str_ip_stop  = socket.inet_ntoa(struct.pack('I',socket.htonl(self.ip_stop)))
-        
-     
-def ip_trans1(ip1_ip2):    
+
+
+def num_get_bits(the_num):
+    temp_num = the_num
+    bits_num = 0
+    while(temp_num > 0):
+        temp_num = temp_num >> 1        
+        bits_num += 1
+    return bits_num
+
+def ip_trans_1(ip1_ip2):    
     the_parts = ip1_ip2.split('-')
     if(len(the_parts) < 2):
         return (0, [])
@@ -74,26 +84,30 @@ def ip_trans1(ip1_ip2):
     if(check_ip(ip2) == False):
         return (0, [])
     ip_start = socket.ntohl(struct.unpack("I",socket.inet_aton(str(ip1)))[0])
-    ip_stop  = socket.ntohl(struct.unpack("I",socket.inet_aton(str(ip2)))[0])
-    ip_num   = ip_stop - ip_start + 1    
-    ip_num_temp = ip_num
-    bits_index = 0    
+    ip_stop  = socket.ntohl(struct.unpack("I",socket.inet_aton(str(ip2)))[0])    
+      
     ip_section_list = []
-    while(ip_num_temp>0):
-        if(ip_num_temp&1 == 1):
-            one_ip_mask = IpMask(ip_start, (32-bits_index)) 
-            ip_section_list.insert(0, one_ip_mask)           
-        ip_num_temp = ip_num_temp >> 1
-        bits_index += 1
+    
+    temp_ip_start = ip_start
+    while(temp_ip_start<=ip_stop):        
+        ip_num   = ip_stop - temp_ip_start + 1            
+        bits_num = num_get_bits(ip_num)
+        print temp_ip_start, ip_stop, ip_num, bits_num
+        temp_bits_num = bits_num
+        while(temp_bits_num>=0):
+            one_ip_section = IpMask(temp_ip_start, (32-temp_bits_num)) 
+            if(one_ip_section.ip_start >= ip_start and one_ip_section.ip_stop <= ip_stop):
+                ip_section_list.append(one_ip_section)
+                temp_ip_start = one_ip_section.ip_stop + 1
+                break
+            temp_bits_num -= 1
+    
     result_list = []
     ip_section_index = 0
-    while(ip_section_index<len(ip_section_list)):
-        one_ip_mask = ip_section_list[ip_section_index]
-        if(ip_section_index!=0):
-            one_ip_mask.reset(ip_section_list[ip_section_index-1].ip_stop + 1)
-        one_result = "%s/%d[%s-%s]" % (one_ip_mask.str_ip_start, one_ip_mask.mask_num, one_ip_mask.str_ip_start, one_ip_mask.str_ip_stop)
+    for ip_section_index in range(0, len(ip_section_list), 1):
+        one_ip_section = ip_section_list[ip_section_index]        
+        one_result = "%s/%d[%s-%s]" % (one_ip_section.str_ip_start, one_ip_section.mask_num, one_ip_section.str_ip_start, one_ip_section.str_ip_stop)
         result_list.append(one_result)
-        ip_section_index += 1
     return (len(result_list), result_list)
 
  
